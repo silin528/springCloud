@@ -1,0 +1,68 @@
+server:
+  port: 8762
+
+eureka:
+  client:
+    serviceUrl:
+      defaultZone: http://localhost:8761/eureka/
+
+mybatis:
+  mapper-locations: classpath:mapper/*.xml
+  type-aliases-package: com.example.eurekaclient.entity
+  # 开启mybatis sql打印
+  configuration:
+    log-impl: org.apache.ibatis.logging.stdout.StdOutImpl
+
+# 配置ds0 和ds1两个数据源
+spring:
+  application:
+    name: service-client01
+  shardingsphere:
+    datasource:
+      jpa:
+        hibernate:
+          ddl-auto: update //自动更新
+        show-sql: true  //日志中显示sql语句
+      names: ds0,ds1
+      #ds0 配置
+      ds0:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://localhost:3306/ds0?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=UTC&autoReconnect=true&failOverReadOnly=false&zeroDateTimeBehavior=convertToNull
+        username: root
+        password: root
+      #ds1 配置
+      ds1:
+        type: com.zaxxer.hikari.HikariDataSource
+        driver-class-name: com.mysql.cj.jdbc.Driver
+        jdbc-url: jdbc:mysql://localhost:3306/ds1?useUnicode=true&characterEncoding=utf-8&useSSL=false&serverTimezone=UTC&autoReconnect=true&failOverReadOnly=false&zeroDateTimeBehavior=convertToNull
+        username: root
+        password: root
+    # 分库策略 根据id取模确定数据进哪个数据库
+    sharding:
+      default-database-strategy:
+        inline:
+          sharding-column:  id
+          algorithm-expression: ds$->{id % 2}
+      # 具体分表策略
+      # 节点 ds0.user_0,ds0.user_1,ds1.user_0,ds1.user_1
+      tables:
+        user:
+          actual-data-nodes: ds$->{0..1}.user_$->{0..1}
+          # 分表字段id
+          table-strategy:
+            inline:
+              sharding-column: id
+              # 分表策略 根据id取模,确定数据最终落在那个表中
+              algorithm-expression: user_$->{id % 2}
+          # 使用SNOWFLAKE算法生成主键
+          key-generator:
+            column: id
+            type: SNOWFLAKE
+#      binding-tables: user
+      # 打印sql解析过程
+      props:
+        sql.show: true
+  main:
+    allow-bean-definition-overriding: true
+
